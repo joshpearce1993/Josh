@@ -1,0 +1,296 @@
+unit GraphOccupation;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
+  System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
+  VclTee.TeeGDIPlus, VclTee.TeEngine, VclTee.Series, Vcl.ExtCtrls,
+  VclTee.TeeProcs, VclTee.Chart, DiscreteEventSimulation, DataTypes,
+  Math, Vcl.StdCtrls, Vcl.Buttons;
+
+type
+  TFormGraphOccupation = class(TForm)
+    ChartBedOccupation: TChart;
+    Series2: TFastLineSeries;
+    Series3: TFastLineSeries;
+    ButtonPlotOccupation: TButton;
+    Series1: TFastLineSeries;
+    Series4: TFastLineSeries;
+    ButtonClose: TBitBtn;
+    SaveDialogBedOccupancy: TSaveDialog;
+    procedure ButtonPlotOccupationClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    procedure DrawBedOccupation;
+  end;
+
+var
+  FormGraphOccupation: TFormGraphOccupation;
+  // The number of occupied beds
+  BedOccupancyArray: array of array of integer;
+  // The mean number of occupied beds
+  MeanOccupancyArray: array of double;
+  // The standard deviation of the number of occupied beds
+  StDevOccupancyArray: array of double;
+
+procedure FillMeanAndStDevOccupationArray;
+procedure FillBedOccupancyArray;
+
+implementation
+
+{$R *.dfm}
+
+uses JPEG;
+
+procedure FillBedOccupancyArray;
+{
+This procedure fills the BedOccupancyArray, which is used to draw the
+occupation graph.
+}
+var
+  i, slots, SimulationCounter, TimeCounter, OccupiedCounter: integer;
+  SimulationTime, TimeOfMutation, TimeOfSlot: double;
+begin
+  // Clear the arrays
+  SetLength(BedOccupancyArray, 0);
+  SetLength(MeanOccupancyArray, 0);
+  SetLength(StDevOccupancyArray, 0);
+
+  // Determine the number of five minute slots that fit in the simulation
+  SimulationTime := Scenario.StopTime - Scenario.StartTime;
+
+  // Simulation time is expressed in days
+  if (SimulationTime * 24 * 12) - trunc(SimulationTime * 24 * 12) > 0 then
+    halt; // This should not happen!
+  slots := trunc(SimulationTime * 24 * 12);  //slot = 5min interval
+  {24 hours per day and 12 slots per day (should work as simulation is always
+  in (integer) multiple of hours}
+
+  // Initial arrays
+  SetLength(BedOccupancyArray, Scenario.NumberReplications);
+  for i := 0 to High(BedOccupancyArray) do
+  begin
+    SetLength(BedOccupancyArray[i], slots);
+  end;
+  SetLength(MeanOccupancyArray, slots);
+  SetLength(StDevOccupancyArray, slots);
+
+  // Fill the bed occupancy array with the simulation data
+  for SimulationCounter := 0 to Scenario.NumberReplications - 1 do
+  begin
+    // Start with initial occupancy
+    // Walk through mutation array until after the current time slot is time
+    BedOccupancyArray[SimulationCounter][0] := Scenario.NumberStartOccupation;
+
+    // Initialising
+    OccupiedCounter := Scenario.NumberStartOccupation;
+    TimeOfSlot := Scenario.StartTime;
+    i := 0;
+
+    // Set to first mutation entry
+    TimeOfMutation :=
+    Max(AggregatePerformance[SimulationCounter].MutationArray[i],
+    AggregatePerformance[SimulationCounter].MutationArray[i] * -1);
+
+    // For every time that is measured (5 minute intervals)
+    for TimeCounter := 0 to High(BedOccupancyArray[SimulationCounter]) do
+    begin
+      // There are two possibilites
+      // The next mutation has not happened yet
+      while (TimeOfMutation < TimeOfSlot) and
+      (i < High(AggregatePerformance[SimulationCounter].MutationArray)) do
+      begin
+        i := i + 1;
+        TimeOfMutation
+        := Max(AggregatePerformance[SimulationCounter].MutationArray[i],
+        AggregatePerformance[SimulationCounter].MutationArray[i] * -1);
+        if AggregatePerformance[SimulationCounter].MutationArray[i] > 0 then
+        begin
+          OccupiedCounter := OccupiedCounter + 1;
+        end
+        else
+        begin
+          OccupiedCounter := OccupiedCounter - 1;
+        end;
+
+      end; // End while
+
+      BedOccupancyArray[SimulationCounter][TimeCounter] := OccupiedCounter;
+
+      // Add 5 minutes
+      TimeOfSlot := TimeOfSlot + (1 / (24 * 12));
+    end; // End for
+  end;
+end;
+
+procedure FillMeanAndStDevOccupationArray;
+{
+This procedure fills the bed occupancy arrays with data.
+}
+var
+  i, j: integer;
+begin
+  // Dimension the arrays
+  SetLength(MeanOccupancyArray, 0);
+  SetLength(MeanOccupancyArray, Length(BedOccupancyArray[0]));
+
+  // Fill array per time slot
+  for i := 0 to High(MeanOccupancyArray) do
+  begin
+    // Initialising
+    MeanOccupancyArray[i] := 0;
+    j := 0;
+
+    // For every simulation
+    while j <= High(BedOccupancyArray) do
+    begin
+      MeanOccupancyArray[i] := MeanOccupancyArray[i] + BedOccupancyArray[j][i];
+      j := j + 1;
+    end; // End while
+
+    // All values are added in while loop, divided by j+1
+    MeanOccupancyArray[i] := MeanOccupancyArray[i] / (j + 1);
+  end; // End for
+
+  // Now determine unbiased variance and standard deviation
+
+  // Initialising
+  SetLength(StDevOccupancyArray, 0);
+  SetLength(StDevOccupancyArray, Length(MeanOccupancyArray));
+
+  for i := 0 to High(StDevOccupancyArray) do
+  begin
+    // Initialising
+    StDevOccupancyArray[i] := 0;
+    j := 0;
+
+    // For every simulation do
+    while j <= High(BedOccupancyArray) do
+    begin
+      StDevOccupancyArray[i] := StDevOccupancyArray[i] +
+      Power((BedOccupancyArray[j][i] - MeanOccupancyArray[i]), 2);
+      j := j + 1;
+    end;
+
+    // Now divide by j (=N-1) to get the variance
+    StDevOccupancyArray[i] := StDevOccupancyArray[i] / j;
+
+    // Take the square root to get standard deviation
+    StDevOccupancyArray[i] := Sqrt(StDevOccupancyArray[i]);
+  end;
+end;
+
+procedure TFormGraphOccupation.ButtonPlotOccupationClick(Sender: TObject);
+{
+This procudure plots the bed occupation when the user clicks the plot button.
+}
+begin
+  // If the simulation has run, plot the resulting bed occupancy
+  if RunSimulation = True then
+  begin
+    FillBedOccupancyArray;
+    FillMeanAndStDevOccupationArray;
+    DrawBedOccupation;
+  end
+  // If not, prompt the user to run the simulation before plotting the graph
+  else
+    ShowMessage('First run the simulation, then plot the graph');
+end;
+
+function ChartToJpeg(Chart:TCustomChart): TJPEGImage;
+{
+This function saves charts created in Delphi as a JPEG image.
+}
+var tmpBitmap : TBitmap;
+begin
+  result:=TJPEGImage.Create;
+
+  // Create a temporary bitmap
+  tmpBitmap:=Chart.TeeCreateBitmap;
+
+  try
+    // Set the desired JPEG options
+    With result do
+    begin
+      CompressionQuality:=95;
+
+      // Copy the temporary Bitmap onto the JPEG image
+      Assign(tmpBitmap);
+    end;
+  finally
+      tmpBitmap.Free; // Free the temporary Bitmap
+    end;
+end;
+
+procedure TFormGraphOccupation.DrawBedOccupation;
+{
+This procedure determines how the graph should be plotted.
+}
+var
+  i, NumberPoints: integer;
+  MinX, MaxX, Step: double;
+  MyJpeg : TJPEGImage;
+  FileDirectory : string;
+begin
+  // Clear series
+  ChartBedOccupation.Series[0].Clear;
+  ChartBedOccupation.Series[1].Clear;
+  ChartBedOccupation.Series[2].Clear;
+  ChartBedOccupation.Series[3].Clear; // Maximum line
+
+  // Determine the number of points to draw
+  NumberPoints := Length(MeanOccupancyArray);
+
+  // Determine the minimum and maximum
+  MinX := 0;
+  MaxX := (NumberPoints * 5) / 60; // Number of hours passed in simulation
+
+  // Set the x-axis value
+  ChartBedOccupation.axes[0].Minimum := MinX;
+  ChartBedOccupation.axes[0].Maximum := MaxX;
+
+  // Define the step value
+  Step := MaxX / NumberPoints;
+
+  // Plot the bed occupancy against time, measured in hours
+  for i := 0 to NumberPoints - 1 do
+  begin
+    // Plot the mean bed occupancy
+    ChartBedOccupation.Series[0].AddXY(MinX + Step * i, MeanOccupancyArray[i]);
+    // Plot one standard deviation above the mean
+    ChartBedOccupation.Series[1].AddXY(MinX + Step * i,
+    (MeanOccupancyArray[i] + StDevOccupancyArray[i]));
+    // Plot one standard deviation below the mean
+    ChartBedOccupation.Series[2].AddXY(MinX + Step * i,
+    (MeanOccupancyArray[i] - StDevOccupancyArray[i]));
+  end;
+
+  {
+  // Draw the maximum bed occupancy line
+  ChartBedOccupation.Series[3].AddXY(MinX, Scenario.MaxBeds);
+  ChartBedOccupation.Series[3].AddXY(MaxX, Scenario.MaxBeds);
+  }
+
+  // Specify the file directory
+  FileDirectory := ExtractFilePath(Application.ExeName);
+
+  // Save the bed occupation graph as a jpeg image
+  MyJpeg := ChartToJpeg(ChartBedOccupation);
+  try
+    MyJpeg.SaveToFile
+    (FileDirectory  + 'Bed Occupation '
+    + FormatDateTime('dd-mm-yyyy hh.nn', Now) + '.jpeg');
+  finally
+    MyJpeg.Free;
+  end;
+
+end;
+
+initialization
+
+finalization
+
+end.

@@ -1,0 +1,14 @@
+The following input fields were loaded:
+The maximum number of beds is 140
+The starting occupation is 120
+The discharge period is between 11:00 and 17:00
+The number of replications is 1000
+
+The default input file was loaded
+
+Descriptive statistics:
+The mean bed occupation of this simulation = 108,899920681171
+The minimum bed occupation during this simulation = 95,2437562437562
+The maximum bed occupation during this simulation = 119,88011988012
+The standard deviation of the mean occupation = 6,03065462975469
+

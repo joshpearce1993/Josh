@@ -1,0 +1,59 @@
+unit RejectedAdmission;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
+  System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
+  VclTee.TeeGDIPlus, VCLTee.TeEngine, Vcl.ExtCtrls, VCLTee.TeeProcs,
+  VCLTee.Chart, VCLTee.Series, DiscreteEventSimulation, DataTypes, Vcl.StdCtrls;
+
+type
+  TFormRefusedAdmission = class(TForm)
+    Chart1: TChart;
+    Series1: TFastLineSeries;
+    Button1: TButton;
+    procedure Button1Click(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  FormRefusedAdmission: TFormRefusedAdmission;
+
+implementation
+
+{$R *.dfm}
+
+procedure DrawRefusedAdmission;
+var
+  i, NumberPoints: integer;
+  MinX, MaxX, Step: double;
+begin
+  // Clear the series
+  FormRefusedAdmission.Series1.Clear;
+
+  NumberPoints := Length(PerformanceData.BlockedDayHour);
+
+  MinX := 0;
+  MaxX := (NumberPoints * 5) / 60;
+
+  Step := MaxX / NumberPoints;
+
+  for i := 0 to NumberPoints - 1 do
+  begin
+    FormRefusedAdmission.Chart1.Series[0].AddXY(MinX + Step * i,
+    PerformanceData.BlockedDayHour[i]);
+  end;
+
+
+end;
+
+procedure TFormRefusedAdmission.Button1Click(Sender: TObject);
+begin
+  DrawRefusedAdmission;
+end;
+
+end.

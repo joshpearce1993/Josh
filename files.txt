@@ -1,0 +1,23 @@
+AMRandom.pas         - Delphi Source
+AMRandomRS.pas       - Resource Strings for above
+MRNG.pas             - EFD's Random Number Generator
+esbproducts.pdf      - list of Freeware & Shareware available from
+                       ESB Consultancy. You may need the Free Adobe 
+                       Acrobat Reader: 
+                http://www.adobe.com/products/acrobat/readstep.html
+files.txt	           - this file
+random.f90.txt       - Alan Miller's Original FORTRAN 90 Source
+readme.txt           - info about AMRandom
+T_random.f90.txt     - Alan Miller's Original FORTRAN 90 Test Program
+TestRandom.exe       - Win32 Exe showing AMRandom features
+whatsnew.txt         - Contains info about changes
+
+Test Source <Dir>    - Contains the Source for TestRandom.Exe
+                       Done with CodeGear Delphi 2007 
+                       Requires ESBPCS and MRNG to rebuild.
+
+Executables have been compressed with ASPack: http://www.aspack.com/
+
+http://www.esbconsult.com/
+mailto:info@esbconsult.com
+
