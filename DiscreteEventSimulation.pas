@@ -36,8 +36,6 @@ type
     SaveDialogBlockedData: TSaveDialog;
     SaveDialogDepartureData: TSaveDialog;
     SaveDialogArrivalData: TSaveDialog;
-    OpenDialog1: TOpenDialog;
-    ButtonLoadDischarge: TButton;
     procedure ButtonLoadEditsClick(Sender: TObject);
     procedure ButtonLoadFromFileClick(Sender: TObject);
     procedure ButtonPlotOccupancyClick(Sender: TObject);
@@ -45,7 +43,6 @@ type
     procedure ButtonRunSimulationClick(Sender: TObject);
     procedure ButtonResetClick(Sender: TObject);
     procedure Saveas1Click(Sender: TObject);
-    procedure ButtonLoadDischargeClick(Sender: TObject);
   private
     { Private declarations }
   public
@@ -78,15 +75,7 @@ function SaveDataToFile(InputFile: TFileName): boolean;
 procedure ExportSimulationOutput;
 procedure CullMutationArray;
 function SaveRejectedAdmissionsToFile(InputFile: TFileName): boolean;
-function SaveDepartureDataToFile(InputFile: TFileName): boolean;
-function SaveArrivalDataToFile(InputFile: TFileName): boolean;
 procedure ExportRejectedAdmissionsData;
-procedure ExportDepartureData;
-procedure ExportArrivalData;
-
-{
-procedure CreateHourlyOccupancyArray; // Not finished
-}
 
 var
   FormSimulation: TFormSimulation;
@@ -201,6 +190,7 @@ var
   F: TextFile;
   i, j: integer;
 begin
+  Result := False;
   // AssignFile initialises file F and names it InputFile
   AssignFile(F, InputFile);
   try
@@ -222,73 +212,6 @@ begin
 
   // Close the file
   CloseFile(F);
-
-  Result := True;
-end;
-
-function SaveDepartureDataToFile(InputFile: TFileName): boolean;
-{
-This function saves the departure data to an external file.
-}
-var
-  F: TextFile;
-  i, j: integer;
-begin
-  // AssignFile initialises file F and names it InputFile
-  AssignFile(F, InputFile);
-  try
-    ReWrite(F);
-  except
-    ShowMessage('File is in use by another program');
-    exit;
-  end;
-
-  // Write the rejected admission data to a file
-  for i := 0 to High(AggregatePerformance) do
-  begin
-    for j := 0 to High(AggregatePerformance[i].DepartureDayHour) do
-    begin
-      write(F, IntToStr(AggregatePerformance[i].DepartureDayHour[j]) + ';');
-    end;
-    WriteLn(F);
-  end;
-
-  // Close the file
-  CloseFile(F);
-
-  Result := True;
-end;
-
-function SaveArrivalDataToFile(InputFile: TFileName): boolean;
-{
-This function saves the arrival data to an external file.
-}
-var
-  F: TextFile;
-  i, j: integer;
-begin
-  // AssignFile initialises file F and names it InputFile
-  AssignFile(F, InputFile);
-  try
-    ReWrite(F);
-  except
-    ShowMessage('File is in use by another program');
-    exit;
-  end;
-
-  // Write the rejected admission data to a file
-  for i := 0 to High(AggregatePerformance) do
-  begin
-    for j := 0 to High(AggregatePerformance[i].ArrivalsDayHour) do
-    begin
-      write(F, IntToStr(AggregatePerformance[i].ArrivalsDayHour[j]) + ';');
-    end;
-    WriteLn(F);
-  end;
-
-  // Close the file
-  CloseFile(F);
-
   Result := True;
 end;
 
@@ -474,21 +397,6 @@ begin
     Result := (b + 7) - (a - 1);
 end;
 
-procedure TFormSimulation.ButtonLoadDischargeClick(Sender: TObject);
-var FileDirectory: string;
-begin
-  // Specify the file directory
-  FileDirectory := ExtractFilePath(Application.ExeName);
-
-  // Set the default file
-  FormSimulation.OpenDialog1.FileName :=
-  FileDirectory + 'DischargeTimeInput.csv';
-
-  if FormSimulation.OpenDialog1.Execute then
-  ImportDischargeTime(FormSimulation.OpenDialog1.FileName);
-end;
-
-
 procedure TFormSimulation.ButtonLoadFromFileClick(Sender: TObject);
 {
 When the "Load Patient Data" button is clicked, this procedure loads an
@@ -555,7 +463,7 @@ This procedure creates the seed events.
 }
 var
    i, j, ArrivalType: integer;
-   Time1, Time2, Time3, RandomNumber: double;
+   Time1, Time2, RandomNumber: double;
 begin
   // Determine the time, and subtract by one minute
   Time1 := Scenario.StartTime - (1/1440); // 24 x 60 = 1440
@@ -607,6 +515,7 @@ begin
       end;
     end;
 
+    {
     // If discharge has a gamma distribution
     if (Scenario.PatientTypes[ArrivalType].DischargeDistName = 'gamma') then
     begin
@@ -621,6 +530,7 @@ begin
       asm int 3
       end;
     end;
+    }
 
     // Determine the reamining time
     Time1 := Time1 * Time2;
@@ -663,7 +573,7 @@ end;
 
 procedure InitialScenario;
 {
-Determine the following parameters: StartTime, StopTime,
+Determine the following initial parameters: StartTime, StopTime,
 PoissonHourlyArrivalRates, MaxPossionRate and TimeNeededForDischarge.
 }
 var
@@ -675,7 +585,6 @@ begin
   // Determine the stop time
   Scenario.StopTime := Scenario.StartTime
   + (Length(Scenario.PoissonHourlyArrivalRates) / 24);
-
 
   // Determine the total hourly arrival rates
   for i := 0 to High(Scenario.PoissonHourlyArrivalRates) do
@@ -690,8 +599,9 @@ begin
     if (Scenario.MaxPoissonRate < Scenario.PoissonHourlyArrivalRates[i]) then
       Scenario.MaxPoissonRate := Scenario.PoissonHourlyArrivalRates[i];
 
-  // Set the time it takes for a patient to be discharged (minutes)
-  //// Scenario.TimeNeededForDischarge := StrToInt(FormSimulation.EditDischargeTime.Text);
+  // Set the time needed for discharge as the mean time taken to discharge
+  Scenario.TimeNeededForDischarge
+  := Scenario.PatientTypes[0].DischargeMean / 24;
 
 end;
 
@@ -798,8 +708,7 @@ begin
                 // Increment counter
                 PerformanceData.PatientsReadyToLeave := 1;
                 // Get earliest time patient is ready to be discharged
-                NextTime := AnEvent.Time + (Scenario.PatientTypes[0].DischargeScale *
-                Random_Gamma(Scenario.PatientTypes[0].DischargeShape / 24));
+                NextTime := AnEvent.Time + (Scenario.TimeNeededForDischarge);
                 // Add event to the event list
                 AddEvent(GetEvent(NextTime, PatientDeparture));
               end
@@ -846,17 +755,16 @@ begin
               asm int 3
               end;
 
+            TimeInteger := GetIntegerHour(AnEvent.Time);
+
             if (PerformanceData.PatientsReadyToLeave > 0) then
             begin
               // Check if future patient may still depart
-              if ((AnEvent.Time + (Scenario.PatientTypes[0].DischargeScale *
-                Random_Gamma(Scenario.PatientTypes[0].DischargeShape/ 24)) -
-                Floor(AnEvent.Time))) < (Scenario.StopDischargePeriod / 24) then
+              if (AnEvent.Time + (Scenario.TimeNeededForDischarge) -
+                Floor(AnEvent.Time)) < (Scenario.StopDischargePeriod / 24) then
               begin
                 AddEvent(GetEvent(AnEvent.Time +
-                  (Scenario.PatientTypes[0].DischargeScale *
-                  Random_Gamma(Scenario.PatientTypes[0].DischargeShape / 24)),
-                  PatientDeparture));
+                Scenario.TimeNeededForDischarge, PatientDeparture));
               end
               else
               // Else, add event tomorrow at start of discharge period
@@ -865,7 +773,7 @@ begin
                   and (StrToInt(FormSimulation.EditEndDischarge.Text) <> 0) then
                   begin
                     // Add event at time today + 1 + start of discharge period
-                    AddEvent(GetEvent(Floor(AnEvent.time) + 1 +
+                    AddEvent(GetEvent(Floor(AnEvent.Time) + 1 +
                     (Scenario.StartDischargePeriod / 24), PatientDeparture));
                   end
                   else
@@ -906,13 +814,7 @@ begin
   ExportSimulationOutput;
 
   // Export the rejected admissions data to a csv file
-  //// ExportRejectedAdmissionsData;
-
-  // Export the departure data to a csv file
-  //// ExportDepartureData;
-
-  // Export the arrivals data to a csv file
-  //// ExportArrivalData;
+  ExportRejectedAdmissionsData;
 
   // Dispose of all the deleted events
   ClearMemory(DeletedEventList);
@@ -965,7 +867,7 @@ var
   RandomNumber, AcceptanceProbability: double;
 begin
   // Determine the integer time
-  TimeInteger := GetIntegerHour(Event.time);
+  TimeInteger := GetIntegerHour(Event.Time);
 
   // Obtain a random number
   RandomNumber := random();
@@ -988,7 +890,7 @@ var
   TimeInteger: integer;
 begin
   // Determine the integer time
-  TimeInteger := GetIntegerHour(Event.time);
+  TimeInteger := GetIntegerHour(Event.Time);
 
   // Sets ward occupation as the curent occupation
   PerformanceData.WardOccupation[TimeInteger]
@@ -1026,33 +928,21 @@ function CheckDeparture(AnEvent: PEvent): boolean;
 This function checks whether patient can depart or not.
 }
 var
-  Time, start, stop: double;
-  i, TimeInteger: integer;
+  Time, Start, Stop: double;
 begin
   // Determine the remainder i.e. the time of day
   Time := AnEvent.Time - Floor(AnEvent.Time);
 
-  TimeInteger := GetIntegerHour(AnEvent.Time);
+  // Determine the start time of discharge
+  Start := Scenario.StartDischargePeriod / 24;
 
-  if (StrToInt(FormSimulation.EditStartDischarge.Text) <> 0)
-  and (StrToInt(FormSimulation.EditEndDischarge.Text) <> 0) then
-  begin
-    // Determine the start time of discharge
-    start := Scenario.StartDischargePeriod / 24;
-    // Determine the stop time of discharge
-    stop := Scenario.StopDischargePeriod / 24;
-    if (start < Time)  and (Time < stop) then
-      Result := True
-    else
-      Result := False;
-  end
+  // Determine the stop time of discharge
+  Stop := Scenario.StopDischargePeriod / 24;
+
+  if (Start < Time)  and (Time < Stop) then
+    Result := True
   else
-    begin
-      if Scenario.DischargeTimeArray[TimeInteger] = 1 then
-      Result:= True
-      else if Scenario.DischargeTimeArray[TimeInteger] = 0 then
-      Result:= False;
-    end;
+    Result := False;
 end;
 
 procedure AddPatient(Event: PEvent);
@@ -1096,7 +986,7 @@ begin
   if (Scenario.PatientTypes[ArrivalType].LOSDistName = 'gamma') then
   begin
     Time := (Scenario.PatientTypes[ArrivalType].scale *
-    Random_Gamma(Scenario.PatientTypes[ArrivalType].shape))
+    Random_Gamma(Scenario.PatientTypes[ArrivalType].shape));
   end
   // Else if Exponential distribution
   else if (Scenario.PatientTypes[ArrivalType].LOSDistName = 'exponential') then
@@ -1112,12 +1002,13 @@ begin
     end;
   end;
 
+  {
   // If discharge has a gamma distribution
   Time := 0;
   if (Scenario.PatientTypes[ArrivalType].DischargeDistName = 'gamma') then
   begin
     Time := (Scenario.PatientTypes[ArrivalType].DischargeScale *
-    Random_Gamma(Scenario.PatientTypes[ArrivalType].DischargeShape))
+    Random_Gamma(Scenario.PatientTypes[ArrivalType].DischargeShape));
   end
   // Else, produce an error message if not gamma distribution
   else
@@ -1127,6 +1018,7 @@ begin
     asm int 3
     end;
   end;
+  }
 
   // Use the LoS to add an event to event list at the current time + LoS
   AddEvent(GetEventWithString(Time + Event.Time, PatientTreated,
@@ -1142,7 +1034,7 @@ var
   TimeInteger: integer;
 begin
   // Determine the integer time
-  TimeInteger := GetIntegerHour(Event.time);
+  TimeInteger := GetIntegerHour(Event.Time);
 
   // Add the rejection to the performance array
   PerformanceData.BlockedDayHour[TimeInteger] :=
@@ -1157,7 +1049,7 @@ var
   TimeInteger: integer;
 begin
   // Determine the integer time
-  TimeInteger := GetIntegerHour(Event.time);
+  TimeInteger := GetIntegerHour(Event.Time);
 
   // Removes one patient so the ward occupation is reduced by 1
   PerformanceData.CurrentWardOccupation
@@ -1275,31 +1167,31 @@ begin
     if (Length(cells) > 0) then
     begin
       // Consider the medical speciality, denoted 'type' in the csv file
-      if (cells[0] = 'type') then
+      if (cells[0] = 'MedicalSpeciality') then
       begin
         Scenario.PatientTypes[NumberPatientType].PatientType := cells[1];
       end
       // Consider the distribution of the LoS, denoted 'dist' in the csv file
-      else if (cells[0] = 'dist') then
+      else if (cells[0] = 'LoSDistribution') then
       begin
           Scenario.PatientTypes[NumberPatientType].LOSDistName := cells[1];
       end
       // Consider the mean LoS, denoted 'mean' in the csv file
-      else if (cells[0] = 'mean') then
+      else if (cells[0] = 'MeanLoS') then
       begin
         Scenario.PatientTypes[NumberPatientType].mean := StrToFloat(cells[1]);
       end
       // Consider the shape of the LoS, denoted 'shape' in the csv file
-      else if ((cells[0] = 'shape') and (Length(cells) > 1)) then
+      else if ((cells[0] = 'Shape') and (Length(cells) > 1)) then
       begin
         Scenario.PatientTypes[NumberPatientType].shape := StrToFloat(cells[1]);
       end
       // Consider the scale of the LoS, denoted 'scale' in the csv file
-      else if ((cells[0] = 'scale') and (Length(cells) > 1)) then
+      else if ((cells[0] = 'Scale') and (Length(cells) > 1)) then
       begin
         Scenario.PatientTypes[NumberPatientType].scale := StrToFloat(cells[1]);
       end
-      else if cells[0] = 'lambda' then
+      else if cells[0] = 'Lambda' then
       // Add the entire entry array
       begin
         SetLength(Scenario.PatientTypes[NumberPatientType].lambda, High(cells));
@@ -1310,7 +1202,7 @@ begin
         end;
       end
       // Consider the discharge distribution in the csv file
-      else if (cells[0] = 'DischargeDist') then
+      else if (cells[0] = 'DischargeDistribution') then
       begin
         Scenario.PatientTypes[NumberPatientType].DischargeDistName := cells[1];
       end
@@ -1443,52 +1335,6 @@ begin
   // Write the data to an external file
   if (FormSimulation.SaveDialogBlockedData.Execute) then
     SaveRejectedAdmissionsToFile(FormSimulation.SaveDialogBlockedData.FileName);
-end;
-
-procedure ExportDepartureData;
-begin
-  // Allow .csv file types to be saved
-  FormSimulation.SaveDialogDepartureData.Filter
-  := 'Csv file|*.csv';
-
-  // Set the default extension of the saved file as csv
-  FormSimulation.SaveDialogDepartureData.DefaultExt := 'csv';
-
-  {If the file name of the created external file already exists, ask the user
-  whether they would like to overwrite the existing file}
-  FormSimulation.SaveDialogDepartureData.Options :=
-  FormSimulation.SaveDialogDepartureData.Options + [ofOverwritePrompt];
-
-  // Save the simulation output file using a timestamp
-  FormSimulation.SaveDialogDepartureData.FileName
-  := 'Departures ' + FormatDateTime('dd-mm-yyyy hh.nn', Now);
-
-  // Write the data to an external file
-  if (FormSimulation.SaveDialogDepartureData.Execute) then
-    SaveDepartureDataToFile(FormSimulation.SaveDialogDepartureData.FileName);
-end;
-
-procedure ExportArrivalData;
-begin
-  // Allow .csv file types to be saved
-  FormSimulation.SaveDialogArrivalData.Filter
-  := 'Csv file|*.csv';
-
-  // Set the default extension of the saved file as csv
-  FormSimulation.SaveDialogArrivalData.DefaultExt := 'csv';
-
-  {If the file name of the created external file already exists, ask the user
-  whether they would like to overwrite the existing file}
-  FormSimulation.SaveDialogArrivalData.Options :=
-  FormSimulation.SaveDialogArrivalData.Options + [ofOverwritePrompt];
-
-  // Save the simulation output file using a timestamp
-  FormSimulation.SaveDialogArrivalData.FileName
-  := 'Arrivals ' + FormatDateTime('dd-mm-yyyy hh.nn', Now);
-
-  // Write the data to an external file
-  if (FormSimulation.SaveDialogArrivalData.Execute) then
-    SaveArrivalDataToFile(FormSimulation.SaveDialogArrivalData.FileName);
 end;
 
 initialization

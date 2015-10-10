@@ -2,8 +2,8 @@ object FormSimulation: TFormSimulation
   Left = 0
   Top = 0
   Caption = 'Simulation'
-  ClientHeight = 451
-  ClientWidth = 665
+  ClientHeight = 393
+  ClientWidth = 617
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -101,8 +101,8 @@ object FormSimulation: TFormSimulation
     OnClick = ButtonLoadFromFileClick
   end
   object ButtonRunSimulation: TButton
-    Left = 129
-    Top = 263
+    Left = 128
+    Top = 232
     Width = 161
     Height = 25
     Caption = 'Run the Simulation'
@@ -110,8 +110,8 @@ object FormSimulation: TFormSimulation
     OnClick = ButtonRunSimulationClick
   end
   object ButtonPlotOccupancy: TButton
-    Left = 129
-    Top = 294
+    Left = 128
+    Top = 263
     Width = 161
     Height = 25
     Caption = 'Plot Bed Occupancy'
@@ -119,8 +119,8 @@ object FormSimulation: TFormSimulation
     OnClick = ButtonPlotOccupancyClick
   end
   object ButtonReset: TBitBtn
-    Left = 129
-    Top = 325
+    Left = 128
+    Top = 294
     Width = 75
     Height = 25
     Caption = '&Reset'
@@ -130,8 +130,8 @@ object FormSimulation: TFormSimulation
     OnClick = ButtonResetClick
   end
   object ButtonClose: TBitBtn
-    Left = 215
-    Top = 325
+    Left = 214
+    Top = 294
     Width = 75
     Height = 25
     Kind = bkClose
@@ -140,8 +140,8 @@ object FormSimulation: TFormSimulation
   end
   object StatusBar1: TStatusBar
     Left = 0
-    Top = 432
-    Width = 665
+    Top = 374
+    Width = 617
     Height = 19
     Panels = <
       item
@@ -153,7 +153,7 @@ object FormSimulation: TFormSimulation
   end
   object CheckBoxSelectFile: TCheckBox
     Left = 9
-    Top = 232
+    Top = 201
     Width = 114
     Height = 25
     Alignment = taLeftJustify
@@ -161,10 +161,10 @@ object FormSimulation: TFormSimulation
     TabOrder = 12
   end
   object Memo: TMemo
-    Left = 384
+    Left = 302
     Top = 0
-    Width = 281
-    Height = 432
+    Width = 315
+    Height = 374
     Align = alRight
     PopupMenu = PopupMenu
     ScrollBars = ssVertical
@@ -178,26 +178,17 @@ object FormSimulation: TFormSimulation
     TabOrder = 4
     Text = '1000'
   end
-  object ButtonLoadDischarge: TButton
-    Left = 129
-    Top = 232
-    Width = 161
-    Height = 25
-    Caption = 'Load Discharge Time'
-    TabOrder = 14
-    OnClick = ButtonLoadDischargeClick
-  end
   object OpenDialogPatientData: TOpenDialog
-    Left = 41
-    Top = 149
+    Left = 233
+    Top = 325
   end
   object SaveDialogPerformanceData: TSaveDialog
     Left = 41
-    Top = 189
+    Top = 157
   end
   object PopupMenu: TPopupMenu
-    Left = 416
-    Top = 72
+    Left = 552
+    Top = 184
     object Saveas1: TMenuItem
       Caption = '&Save as...'
       ShortCut = 16467
@@ -206,18 +197,14 @@ object FormSimulation: TFormSimulation
   end
   object SaveDialogBlockedData: TSaveDialog
     Left = 40
-    Top = 256
+    Top = 240
   end
   object SaveDialogDepartureData: TSaveDialog
     Left = 40
-    Top = 296
+    Top = 288
   end
   object SaveDialogArrivalData: TSaveDialog
-    Left = 40
-    Top = 344
-  end
-  object OpenDialog1: TOpenDialog
-    Left = 320
-    Top = 272
+    Left = 120
+    Top = 328
   end
 end

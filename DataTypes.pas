@@ -44,7 +44,7 @@ type
     NumberReplications: integer;
     // Time needed in minutes to discharge a patient
     //// TimeNeededForDischarge in user form
-    TimeNeededForDischarge: integer;
+    TimeNeededForDischarge: double;
     //  Matrix consisting of the arrival rates per day/hour
     PoissonHourlyArrivalRates: TRateArray;
     // Maximum arrival rate (Used to simulate Poisson arrivals)
